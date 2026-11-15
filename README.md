@@ -53,6 +53,12 @@
 1. The **Spotify desktop app** from [spotify.com/download](https://www.spotify.com/download). The Microsoft Store version doesn't work with Spicetify.
 2. **[Spicetify](https://spicetify.app/docs/getting-started)** installed and applied at least once.
 
+### Easiest — Spicetify Marketplace
+
+Open **Marketplace** in Spotify's sidebar, go to **Extensions**, search **DJ Mix** and click **Install**. Done.
+
+<sub>No Marketplace yet? See the <a href="https://spicetify.app/docs/customization/marketplace">Spicetify Marketplace docs</a>, or use the one-paste install below.</sub>
+
 ### Quick install — Windows
 
 Paste this into PowerShell:
