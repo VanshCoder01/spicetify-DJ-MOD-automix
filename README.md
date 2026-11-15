@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="#install"><img alt="Spicetify extension" src="https://img.shields.io/badge/spicetify-extension-1ed760?style=for-the-badge&labelColor=0a0e0c"></a>
-  <img alt="Version 0.3.0" src="https://img.shields.io/badge/version-0.3.0-1ed760?style=for-the-badge&labelColor=0a0e0c">
+  <a href="https://github.com/ranveerthapar025-bit/spicetify-DJ-MOD-automix/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ranveerthapar025-bit/spicetify-DJ-MOD-automix?style=for-the-badge&labelColor=0a0e0c&color=1ed760&label=release"></a>
   <img alt="Tested on Spotify 1.3.9" src="https://img.shields.io/badge/tested_on-spotify_1.3.9-1ed760?style=for-the-badge&labelColor=0a0e0c">
   <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-windows-1ed760?style=for-the-badge&labelColor=0a0e0c">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-1ed760?style=for-the-badge&labelColor=0a0e0c"></a>
@@ -60,7 +60,7 @@ Paste this into PowerShell:
 ```powershell
 $dir = "$env:APPDATA\spicetify\Extensions"
 New-Item -ItemType Directory -Force $dir | Out-Null
-Invoke-WebRequest "https://raw.githubusercontent.com/ranveerthapar025-bit/spicetify-DJ-MOD-automix/main/djmix.js" -OutFile "$dir\djmix.js"
+Invoke-WebRequest "https://github.com/ranveerthapar025-bit/spicetify-DJ-MOD-automix/releases/latest/download/djmix.js" -OutFile "$dir\djmix.js"
 spicetify config extensions djmix.js
 spicetify apply
 ```
@@ -74,7 +74,7 @@ Spotify restarts with DJ Mix running. That's it.
 
 ```bash
 mkdir -p ~/.config/spicetify/Extensions
-curl -fsSL https://raw.githubusercontent.com/ranveerthapar025-bit/spicetify-DJ-MOD-automix/main/djmix.js \
+curl -fsSL https://github.com/ranveerthapar025-bit/spicetify-DJ-MOD-automix/releases/latest/download/djmix.js \
   -o ~/.config/spicetify/Extensions/djmix.js
 spicetify config extensions djmix.js
 spicetify apply
@@ -110,10 +110,12 @@ spicetify apply
 
 Play any playlist or album and let it run. About 1.5 seconds before the mix point the next song starts blending in.
 
-Click the **DJ Mix button** in the playbar to open the panel. It shows what's coming up, live:
+Click the **DJ Mix button** in the playbar to open the panel. It shows the next mix live: when it lands, how long the overlap is, both BPMs and the tempo change.
 
-> **Next mix → Song B at 3:12**<br>
-> 16 bars · 7.7s overlap · beat-matched 124→126 BPM · +1.6% tempo
+<p align="center">
+  <img src="assets/panel.svg" alt="The DJ Mix panel showing 'Next mix → Neon Skyline at 3:12', the mix notification, and the DJ Mix button in Spotify's playbar" width="100%">
+</p>
+<p align="center"><sub>Illustration. Song name and numbers are examples.</sub></p>
 
 | Setting | Default | What it does |
 | :-- | :-- | :-- |

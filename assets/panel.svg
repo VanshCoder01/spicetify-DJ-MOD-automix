@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="560" viewBox="0 0 1280 560" role="img" aria-label="DJ Mix inside Spotify: the settings panel with live status, the mix notification, and the DJ Mix button in the playbar">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a0e0c"/><stop offset="1" stop-color="#0e1c14"/></linearGradient>
+  <radialGradient id="glow" cx="0.9" cy="0.7" r="0.45"><stop offset="0" stop-color="#1ed760" stop-opacity="0.16"/><stop offset="1" stop-color="#1ed760" stop-opacity="0"/></radialGradient>
+  <radialGradient id="btnglow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#1ed760" stop-opacity="0.35"/><stop offset="1" stop-color="#1ed760" stop-opacity="0"/></radialGradient>
+  <clipPath id="card"><rect width="1280" height="560" rx="28"/></clipPath>
+  <path id="dj" d="M1 3.5a.75.75 0 0 1 .75-.75c3.2 0 5.03 2.27 6.25 4.6 1.22-2.33 3.05-4.6 6.25-4.6a.75.75 0 0 1 0 1.5c-2.53 0-3.97 1.9-5.4 4.75 1.43 2.85 2.87 4.75 5.4 4.75a.75.75 0 0 1 0 1.5c-3.2 0-5.03-2.27-6.25-4.6-1.22 2.33-3.05 4.6-6.25 4.6a.75.75 0 0 1 0-1.5c2.53 0 3.97-1.9 5.4-4.75C5.72 6.15 4.28 4.25 1.75 4.25A.75.75 0 0 1 1 3.5z"/>
+</defs>
+<style>
+  .pulse { animation: pulse 1s ease-in-out infinite alternate; }
+  @keyframes pulse { from { opacity: 0.35; } to { opacity: 1; } }
+  .prog { animation: prog 12s linear infinite; transform-origin: 800px 0; }
+  @keyframes prog { from { transform: scaleX(0.35); } to { transform: scaleX(1); } }
+  @media (prefers-reduced-motion: reduce) { .pulse, .prog { animation: none; } }
+</style>
+<g clip-path="url(#card)">
+  <rect width="1280" height="560" fill="url(#bg)"/>
+  <rect width="1280" height="560" fill="url(#glow)"/>
+</g>
+<rect x="0.5" y="0.5" width="1279" height="559" rx="28" fill="none" stroke="#ffffff" stroke-opacity="0.09"/>
+
+<g font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif">
+  <text x="48" y="74" font-size="18" font-weight="700" letter-spacing="4" fill="#1ed760">IN SPOTIFY</text>
+  <text x="48" y="122" font-size="36" font-weight="800" letter-spacing="-0.5" fill="#ffffff">One button. Live status. Zero fuss.</text>
+
+  <!-- settings panel -->
+  <g transform="translate(48 160)">
+    <rect width="640" height="360" rx="12" fill="#242424" stroke="#ffffff" stroke-opacity="0.08"/>
+    <text x="32" y="52" font-size="26" font-weight="700" fill="#ffffff">DJ Mix</text>
+    <path d="M594 36 l16 16 M610 36 l-16 16" stroke="#b3b3b3" stroke-width="2.2" stroke-linecap="round"/>
+    <rect x="32" y="80" width="576" height="88" rx="8" fill="#ffffff" fill-opacity="0.07"/>
+    <text x="52" y="116" font-size="20" font-weight="700" fill="#ffffff">Next mix → Neon Skyline at 3:12</text>
+    <text x="52" y="146" font-size="15" fill="#b3b3b3">16 bars · 7.7s overlap · beat-matched 105→107 BPM · +1.9% tempo</text>
+    <text x="32" y="216" font-size="17" fill="#ffffff">Mix songs like a DJ</text>
+    <rect x="590" y="201" width="18" height="18" rx="3" fill="#1ed760"/>
+    <path d="M594 210 l3.5 3.5 l6.5 -7" stroke="#0a0e0c" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="32" y="260" font-size="17" fill="#ffffff">Show a notification on each mix</text>
+    <rect x="590" y="245" width="18" height="18" rx="3" fill="#1ed760"/>
+    <path d="M594 254 l3.5 3.5 l6.5 -7" stroke="#0a0e0c" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="32" y="304" font-size="14" fill="#8a8a8a">Transitions come from Spotify's own automix engine: it picks the mix point,</text>
+    <text x="32" y="324" font-size="14" fill="#8a8a8a">lines up the beats and nudges the tempo of the incoming song. While mixing,</text>
+    <text x="32" y="344" font-size="14" fill="#8a8a8a">songs you add to the queue are picked up after you next seek or skip.</text>
+  </g>
+
+  <!-- notification -->
+  <g transform="translate(736 172)">
+    <rect width="496" height="60" rx="10" fill="#1ed760"/>
+    <use href="#dj" transform="translate(22 18) scale(1.5)" fill="#0a0e0c"/>
+    <text x="62" y="36" font-size="15" font-weight="600" fill="#0a0e0c">Mixing into Neon Skyline · beat-matched (+1.9% tempo)</text>
+  </g>
+  <text x="736" y="262" font-size="15" fill="#8fa098">A heads-up as each mix starts. Optional.</text>
+
+  <!-- playbar -->
+  <g transform="translate(736 300)">
+    <rect width="496" height="96" rx="12" fill="#121212" stroke="#ffffff" stroke-opacity="0.08"/>
+    <!-- shuffle -->
+    <path d="M42 28 h6 l12 14 h8 M42 42 h6 l12 -14 h8" stroke="#b3b3b3" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- previous -->
+    <rect x="94" y="27" width="2.5" height="16" rx="1" fill="#b3b3b3"/><path d="M112 27 v16 l-13 -8 z" fill="#b3b3b3"/>
+    <!-- play/pause -->
+    <circle cx="148" cy="35" r="18" fill="#ffffff"/>
+    <rect x="141" y="27" width="4.5" height="16" rx="1" fill="#000000"/><rect x="150.5" y="27" width="4.5" height="16" rx="1" fill="#000000"/>
+    <!-- next -->
+    <path d="M184 27 v16 l13 -8 z" fill="#b3b3b3"/><rect x="199.5" y="27" width="2.5" height="16" rx="1" fill="#b3b3b3"/>
+    <!-- repeat -->
+    <rect x="226" y="28" width="26" height="14" rx="5" stroke="#b3b3b3" stroke-width="2" fill="none"/>
+    <!-- progress -->
+    <text x="34" y="77" font-size="11" fill="#a7a7a7">1:42</text>
+    <rect x="64" y="70" width="200" height="4" rx="2" fill="#4d4d4d"/>
+    <rect class="prog" x="64" y="70" width="200" height="4" rx="2" fill="#ffffff" style="transform-origin: 64px 0"/>
+    <text x="272" y="77" font-size="11" fill="#a7a7a7">3:58</text>
+    <!-- right side: volume etc. -->
+    <rect x="324" y="30" width="18" height="12" rx="2" stroke="#b3b3b3" stroke-width="2" fill="none"/>
+    <path d="M358 31 h4 l6 -5 v18 l-6 -5 h-4 z" fill="#b3b3b3"/>
+    <rect x="376" y="34" width="40" height="4" rx="2" fill="#b3b3b3"/>
+    <!-- DJ Mix button -->
+    <circle cx="456" cy="36" r="30" fill="url(#btnglow)" class="pulse"/>
+    <use href="#dj" transform="translate(444 24) scale(1.5)" fill="#1ed760"/>
+    <circle cx="456" cy="56" r="2.5" fill="#1ed760"/>
+  </g>
+  <text x="736" y="426" font-size="15" fill="#8fa098">The <tspan fill="#1ed760" font-weight="700">DJ Mix</tspan> button in the playbar opens the panel</text>
+  <text x="736" y="448" font-size="15" fill="#8fa098">and lights up while mixing is on.</text>
+</g>
+</svg>

@@ -1,0 +1,54 @@
+name: Bug report
+description: Something isn't mixing, sounds wrong, or broke after an update.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Open the **DJ Mix panel** (playbar button) first: its status line often says why a song didn't mix.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you hear or see, and what did you expect instead?
+      placeholder: "The mix into the next song cut in early and the old song jumped back a few seconds."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be reproduced?
+      description: Playlist or album type, the two songs if you know them, and what you clicked.
+  - type: input
+    id: spotify
+    attributes:
+      label: Spotify version
+      description: Spotify menu → Help → About Spotify.
+      placeholder: "1.3.9.2055"
+    validations:
+      required: true
+  - type: input
+    id: spicetify
+    attributes:
+      label: Spicetify version
+      description: Run `spicetify -v`.
+      placeholder: "2.46.7"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output
+      description: Run `spicetify enable-devtools`, press Ctrl+Shift+I in Spotify, filter the console for `[DJ Mix]` and paste what you see.
+      render: text
