@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="588" viewBox="0 0 1280 588" role="img" aria-label="How DJ Mix works: 1 ask Spotify for the mix, 2 patch the preview signal, 3 fire on the beat, 4 chain the whole queue">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a0e0c"/><stop offset="1" stop-color="#0e1c14"/></linearGradient>
+  <radialGradient id="glow" cx="0.1" cy="0.05" r="0.5"><stop offset="0" stop-color="#1ed760" stop-opacity="0.14"/><stop offset="1" stop-color="#1ed760" stop-opacity="0"/></radialGradient>
+  <clipPath id="card"><rect width="1280" height="588" rx="28"/></clipPath>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1ed760"/></marker>
+</defs>
+<g clip-path="url(#card)">
+  <rect width="1280" height="588" fill="url(#bg)"/>
+  <rect width="1280" height="588" fill="url(#glow)"/>
+</g>
+<rect x="0.5" y="0.5" width="1279" height="587" rx="28" fill="none" stroke="#ffffff" stroke-opacity="0.09"/>
+
+<g font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif">
+  <text x="48" y="74" font-size="18" font-weight="700" letter-spacing="4" fill="#1ed760">HOW IT WORKS</text>
+  <text x="48" y="122" font-size="36" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Spotify already ships a DJ. DJ Mix hands it the decks.</text>
+
+  <!-- connectors -->
+  <line x1="628" y1="254" x2="652" y2="254" stroke="#1ed760" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="628" y1="466" x2="652" y2="466" stroke="#1ed760" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M944 348 C944 360 336 358 336 368" fill="none" stroke="#1ed760" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="4 6" marker-end="url(#arrow)"/>
+
+  <!-- 1 -->
+  <g transform="translate(48 160)">
+    <rect width="576" height="188" rx="20" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.09"/>
+    <circle cx="44" cy="50" r="20" fill="#1ed760"/>
+    <text x="44" y="57" font-size="20" font-weight="800" fill="#0a0e0c" text-anchor="middle">1</text>
+    <text x="80" y="59" font-size="26" font-weight="700" fill="#ffffff">Ask Spotify for the mix</text>
+    <text x="80" y="98" font-size="20" fill="#a7b4ad">Its server picks the mix point, overlap,</text>
+    <text x="80" y="126" font-size="20" fill="#a7b4ad">BPMs and tempo nudge for every song pair.</text>
+    <rect x="80" y="142" width="372" height="30" rx="8" fill="#1ed760" fill-opacity="0.1"/>
+    <text x="92" y="163" font-family="SFMono-Regular, Consolas, Menlo, monospace" font-size="16" fill="#8ff5b6">getAutoTransitionForTrackPair(a, b)</text>
+  </g>
+
+  <!-- 2 -->
+  <g transform="translate(656 160)">
+    <rect width="576" height="188" rx="20" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.09"/>
+    <circle cx="44" cy="50" r="20" fill="#1ed760"/>
+    <text x="44" y="57" font-size="20" font-weight="800" fill="#0a0e0c" text-anchor="middle">2</text>
+    <text x="80" y="59" font-size="26" font-weight="700" fill="#ffffff">Patch the preview signal</text>
+    <text x="80" y="98" font-size="20" fill="#a7b4ad">Previews restart 3 s early. DJ Mix rewrites</text>
+    <text x="80" y="126" font-size="20" fill="#a7b4ad">the start so the song keeps its place.</text>
+    <rect x="80" y="142" width="404" height="30" rx="8" fill="#1ed760" fill-opacity="0.1"/>
+    <text x="92" y="163" font-family="SFMono-Regular, Consolas, Menlo, monospace" font-size="16" fill="#8ff5b6">automix-preview · protobuf fields 5 + 6</text>
+  </g>
+
+  <!-- 3 -->
+  <g transform="translate(48 372)">
+    <rect width="576" height="188" rx="20" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.09"/>
+    <circle cx="44" cy="50" r="20" fill="#1ed760"/>
+    <text x="44" y="57" font-size="20" font-weight="800" fill="#0a0e0c" text-anchor="middle">3</text>
+    <text x="80" y="59" font-size="26" font-weight="700" fill="#ffffff">Fire right on time</text>
+    <text x="80" y="98" font-size="20" fill="#a7b4ad">1.5 s before the mix point, a Worker clock</text>
+    <text x="80" y="126" font-size="20" fill="#a7b4ad">triggers Spotify's own transition engine.</text>
+    <rect x="80" y="142" width="292" height="30" rx="8" fill="#1ed760" fill-opacity="0.1"/>
+    <text x="92" y="163" font-family="SFMono-Regular, Consolas, Menlo, monospace" font-size="16" fill="#8ff5b6">triggerAt = startAMs − 1500</text>
+  </g>
+
+  <!-- 4 -->
+  <g transform="translate(656 372)">
+    <rect width="576" height="188" rx="20" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.09"/>
+    <circle cx="44" cy="50" r="20" fill="#1ed760"/>
+    <text x="44" y="57" font-size="20" font-weight="800" fill="#0a0e0c" text-anchor="middle">4</text>
+    <text x="80" y="59" font-size="26" font-weight="700" fill="#ffffff">Chain the whole queue</text>
+    <text x="80" y="98" font-size="20" fill="#a7b4ad">Stays in automix mode, mixing song after</text>
+    <text x="80" y="126" font-size="20" fill="#a7b4ad">song. Seek or skip returns you to your list.</text>
+    <rect x="80" y="142" width="264" height="30" rx="8" fill="#1ed760" fill-opacity="0.1"/>
+    <text x="92" y="163" font-family="SFMono-Regular, Consolas, Menlo, monospace" font-size="16" fill="#8ff5b6">no restarts → no stutter</text>
+  </g>
+</g>
+</svg>
