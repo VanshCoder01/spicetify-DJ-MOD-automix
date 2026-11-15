@@ -7,6 +7,7 @@
   <img alt="Version 0.3.0" src="https://img.shields.io/badge/version-0.3.0-1ed760?style=for-the-badge&labelColor=0a0e0c">
   <img alt="Tested on Spotify 1.3.9" src="https://img.shields.io/badge/tested_on-spotify_1.3.9-1ed760?style=for-the-badge&labelColor=0a0e0c">
   <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-windows-1ed760?style=for-the-badge&labelColor=0a0e0c">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-1ed760?style=for-the-badge&labelColor=0a0e0c"></a>
 </p>
 
 <h3 align="center">Your playlists, mixed like a DJ set.</h3>
@@ -197,5 +198,9 @@ If the console says *This Spotify version has no automix engine; extension disab
 DJ Mix runs on undocumented parts of the Spotify app. Any Spotify update can change them. If the automix engine disappears, DJ Mix switches itself off and Spotify plays as normal; smaller changes could stop mixing until the extension is updated.
 
 **Tested with** Spotify 1.3.9.2055 · Spicetify 2.46.7 · Windows 11.
+
+## License
+
+[MIT](LICENSE). Use it, fork it, remix it.
 
 <sub>Not affiliated with or endorsed by Spotify. Spotify is a trademark of Spotify AB.</sub>
