@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! Open the **DJ Mix panel** (playbar button) first: its status line often says why a song didn't mix.
+        Thanks for reporting! Open the **DJ Mix panel** (playbar button) first: its status line often says why a song didn't mix, and a filter (beat-matched only, tempo limit) or a skipped mix may be the reason.
   - type: textarea
     id: what
     attributes:
@@ -20,6 +20,12 @@ body:
     attributes:
       label: How can it be reproduced?
       description: Playlist or album type, the two songs if you know them, and what you clicked.
+  - type: input
+    id: djmix
+    attributes:
+      label: DJ Mix version
+      description: The `VERSION:` line at the top of djmix.js, or the release you installed.
+      placeholder: "0.4.0"
   - type: input
     id: spotify
     attributes:

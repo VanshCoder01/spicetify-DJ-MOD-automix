@@ -25,7 +25,8 @@
   <a href="#troubleshooting"><b>Troubleshooting</b></a>
 </p>
 
-<br>
+> [!TIP]
+> **New in v0.4.0:** see the next mix glowing on the seek bar, fire it early with **Mix now**, **skip** one you don't want, filter out off-beat or big-tempo mixes, and check your **mix history and stats**. <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd> toggles it all. [Release notes →](https://github.com/ranveerthapar025-bit/spicetify-DJ-MOD-automix/releases/tag/v0.4.0)
 
 ## Crossfade vs DJ Mix
 
@@ -107,9 +108,14 @@ cd spicetify-DJ-MOD-automix
 powershell -ExecutionPolicy Bypass -File .\deploy.ps1
 ```
 
-`deploy.ps1` copies `djmix.js` into Spicetify's Extensions folder, enables it if it isn't already, and runs `spicetify apply`. Run it again after every edit.
+`deploy.ps1` copies `djmix.js` into Spicetify's Extensions folder, enables it if it isn't already, and runs `spicetify apply`. It finds the Spicetify CLI even in a terminal opened before Spicetify was installed. Run it again after every edit.
 
 </details>
+
+### Updating
+
+- **Marketplace:** update DJ Mix from Marketplace's Extensions tab.
+- **Quick install:** run the `Invoke-WebRequest` line again (or the `curl` line on macOS/Linux), then `spicetify apply`. It always fetches the latest release.
 
 ### Uninstall
 
@@ -120,12 +126,12 @@ spicetify apply
 
 ## Using it
 
-Play any playlist or album and let it run. About 1.5 seconds before the mix point the next song starts blending in.
+Play any playlist or album and let it run. A glowing green zone appears on Spotify's seek bar where the next mix will land. About 1.5 seconds before it, the next song starts blending in.
 
 Click the **DJ Mix button** in the playbar to open the panel. It shows the next mix live: when it lands, a countdown, how long the overlap is, both BPMs and the tempo change.
 
 <p align="center">
-  <img src="assets/panel.svg" alt="The DJ Mix panel showing 'Next mix → Neon Skyline at 3:12', the mix notification, and the DJ Mix button in Spotify's playbar" width="100%">
+  <img src="assets/panel.svg" alt="The DJ Mix panel with a live countdown to the next mix, Mix now and Skip this mix buttons, five settings, recent mixes and all-time stats; the mix notification; the glowing next-mix zone on Spotify's seek bar; and the Ctrl+Alt+D shortcut" width="100%">
 </p>
 <p align="center"><sub>Illustration. Song name and numbers are examples.</sub></p>
 
@@ -150,6 +156,9 @@ Settings are saved and survive restarts.
 | repeat-one is on | stays out of the way |
 | it's a podcast or audiobook episode | stays out of the way |
 | Spotify has no transition for that pair of songs | changes song normally, right at the end |
+| Spotify can only crossfade the pair and **Only mix when Spotify can beat-match** is on | changes song normally |
+| the tempo change is bigger than your **Largest tempo change allowed** | changes song normally |
+| you pressed **Skip this mix** | lets that one song end normally, then carries on mixing |
 | you seek, skip or go back mid-session | hands you back to your playlist at that spot and keeps mixing from there |
 | you add songs to the queue while it's mixing | picks them up after your next seek or skip |
 
@@ -193,7 +202,16 @@ Spotify ships a native transition engine for its playlist **Mix** feature, but d
 
 <br>
 
-Open the DJ Mix panel. The status line says why, for example *Next song is from your queue, so it plays normally*, *Repeat-one is on*, or *Spotify has no transition for this pair*.
+Open the DJ Mix panel. The status line says why, for example *Next song is from your queue, so it plays normally*, *Repeat-one is on*, *Spotify has no transition for this pair*, *Spotify can't beat-match this pair (beat-matched only is on)* or *Tempo change +6.2% is over your 4% limit*. If a filter is blocking mixes you want, loosen it in the panel.
+
+</details>
+
+<details>
+<summary><b>The green zone doesn't show on the seek bar</b></summary>
+
+<br>
+
+Check **Show the next mix on the seek bar** is on in the panel. The zone only appears once a mix is planned for the current song, and it hides while a mix is playing. If Spotify changes its seek bar layout in an update, the zone may stop appearing; mixing itself still works.
 
 </details>
 
