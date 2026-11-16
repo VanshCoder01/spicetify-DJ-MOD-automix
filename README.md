@@ -43,6 +43,12 @@
 - 🔗 **Seamless chaining** — once the first mix fires, DJ Mix keeps mixing song after song without restarting playback, so there's no stutter between mixes.
 - ⏭️ **Your controls still work** — seek, skip and back all work mid-mix and drop you back into your playlist at the right spot.
 - 🪟 **Works when minimised** — timing runs on a background Worker clock, so mixes land on time even with Spotify in the tray.
+- 📍 **See the mix coming** — a glowing zone on Spotify's seek bar shows exactly where the next blend lands and how long it lasts, with a live countdown in the panel.
+- ⏩ **Mix now** — jump straight to the next blend instead of waiting for the end of the song.
+- 🙅 **Skip this mix** — let one song end normally, just this once (and undo it if you change your mind).
+- 🎛️ **Mix filters** — only mix when Spotify can beat-match, and/or cap how much the tempo is allowed to change.
+- 📜 **Mix history and stats** — your last mixes with BPMs and tempo change, plus all-time totals: mixes, % beat-matched, average tempo shift, minutes of blending.
+- ⌨️ **Ctrl+Alt+D** — toggle DJ Mix from anywhere in Spotify.
 - 🔔 **Mix notifications** — `🎧 Mixing into <song> · beat-matched (+1.6% tempo)`, if you want them.
 - 🪶 **One file** — a single JavaScript file. No servers, no accounts, nothing talks to anything except Spotify.
 
@@ -116,7 +122,7 @@ spicetify apply
 
 Play any playlist or album and let it run. About 1.5 seconds before the mix point the next song starts blending in.
 
-Click the **DJ Mix button** in the playbar to open the panel. It shows the next mix live: when it lands, how long the overlap is, both BPMs and the tempo change.
+Click the **DJ Mix button** in the playbar to open the panel. It shows the next mix live: when it lands, a countdown, how long the overlap is, both BPMs and the tempo change.
 
 <p align="center">
   <img src="assets/panel.svg" alt="The DJ Mix panel showing 'Next mix → Neon Skyline at 3:12', the mix notification, and the DJ Mix button in Spotify's playbar" width="100%">
@@ -127,6 +133,11 @@ Click the **DJ Mix button** in the playbar to open the panel. It shows the next 
 | :-- | :-- | :-- |
 | **Mix songs like a DJ** | On | Turns mixing on or off. The playbar button lights up while it's on. |
 | **Show a notification on each mix** | On | Pops up the song that's mixing in and the tempo change. |
+| **Show the next mix on the seek bar** | On | Draws the upcoming mix point and overlap on Spotify's progress bar. |
+| **Only mix when Spotify can beat-match** | Off | Songs Spotify can only crossfade change normally instead. |
+| **Largest tempo change allowed** | Any | Skip mixes that would speed up or slow down the next song by more than ±2/4/6/8%. |
+
+The panel also has **⏩ Mix now** (jump to a few seconds before the next mix point) and **Skip this mix** (let the current song end normally), plus your **recent mixes** and **all-time stats**. <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd> turns DJ Mix on or off.
 
 Settings are saved and survive restarts.
 
@@ -195,7 +206,7 @@ Open the DJ Mix panel. The status line says why, for example *Next song is from 
 spicetify enable-devtools
 ```
 
-Then press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> in Spotify and filter the console for `[DJ Mix]`. Every planned mix is logged with its recipe, and `__djmix.plan`, `__djmix.session` and `__djmix.settings` show the live state.
+Then press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> in Spotify and filter the console for `[DJ Mix]`. Every planned mix is logged with its recipe, and `__djmix.plan`, `__djmix.session`, `__djmix.settings`, `__djmix.history` and `__djmix.stats` show the live state.
 
 If the console says *This Spotify version has no automix engine; extension disabled*, your Spotify build doesn't include the engine. Updating Spotify and Spicetify is the only fix.
 

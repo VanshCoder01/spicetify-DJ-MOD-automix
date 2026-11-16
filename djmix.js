@@ -1,7 +1,7 @@
 // NAME: DJ Mix
 // DESCRIPTION: Real DJ transitions in Spotify. Uses Spotify's own (hidden) automix engine to overlap the end of one
 //              song with the next, beat-matched and tempo-synced, like Apple Music's AutoMix.
-// VERSION: 0.3.0
+// VERSION: 0.4.0
 //
 // How it works
 //   Spotify ships a native transition engine for its playlist "Mix" feature. Its editor can preview a transition between
@@ -32,19 +32,31 @@
   // ---------------------------------------------------------------- settings
 
   const SETTINGS_KEY = "djmix:v2";
-  const DEFAULTS = { enabled: true, notify: true };
-  const settings = (() => {
+  // beatOnly: skip mixes Spotify can't beat-match. maxTempo: skip mixes that change tempo by more than this % (0 = any).
+  // marker: draw the next mix on the seek bar.
+  const DEFAULTS = { enabled: true, notify: true, marker: true, beatOnly: false, maxTempo: 0 };
+  const loadJSON = (key, fallback) => {
     try {
-      return { ...DEFAULTS, ...JSON.parse(S.LocalStorage.get(SETTINGS_KEY) || "{}") };
+      const v = JSON.parse(S.LocalStorage.get(key) || "null");
+      return v && typeof v === "object" ? v : fallback;
     } catch {
-      return { ...DEFAULTS };
+      return fallback;
     }
-  })();
-  const saveSettings = () => {
+  };
+  const saveJSON = (key, v) => {
     try {
-      S.LocalStorage.set(SETTINGS_KEY, JSON.stringify(settings));
+      S.LocalStorage.set(key, JSON.stringify(v));
     } catch {}
   };
+  const settings = { ...DEFAULTS, ...loadJSON(SETTINGS_KEY, {}) };
+  const saveSettings = () => saveJSON(SETTINGS_KEY, settings);
+
+  // Mix history (last few mixes) and lifetime stats, kept across restarts.
+  const HISTORY_KEY = "djmix:history";
+  const STATS_KEY = "djmix:stats";
+  const HISTORY_MAX = 12;
+  const history = Array.isArray(loadJSON(HISTORY_KEY, [])) ? loadJSON(HISTORY_KEY, []) : [];
+  const stats = { mixes: 0, beatmatched: 0, overlapMs: 0, tempoSum: 0, ...loadJSON(STATS_KEY, {}) };
 
   // ---------------------------------------------------------------- helpers
 
@@ -66,6 +78,8 @@
   };
   const ref = (item) => item && { uri: item.uri, uid: item.uid, name: item.name, provider: item.provider };
   const mixable = (item) => item && isTrack(item.uri) && (!item.provider || item.provider === "context");
+  const tempoPct = (ov) => (ov?.isBeatmatched && ov.speedB ? (ov.speedB - 1) * 100 : 0);
+  const signedPct = (p) => `${p > 0 ? "+" : ""}${p.toFixed(1)}%`;
 
   // Main-thread timers get throttled to ~1/s when Spotify is minimised. Worker timers don't, so use one as the clock.
   function startClock(fn, ms) {
@@ -165,6 +179,7 @@
   let planning = false;
   let busy = false;
   let lastReason = "";
+  let skippedKey = ""; // the one upcoming mix you chose to skip
 
   function curRef(st) {
     if (!session) return ref(st?.item);
@@ -182,12 +197,18 @@
     if (!to) return void (lastReason = "Nothing up next");
     if (!mixable(to)) return void (lastReason = "Next song is from your queue, so it plays normally");
     if (st.repeat === 2) return void (lastReason = "Repeat-one is on");
+    if (key === skippedKey) return void (lastReason = `Skipping this mix; ${to.name ?? "the next song"} plays normally`);
     planning = true;
     try {
       const tr = await M.getAutoTransitionForTrackPair(from.uri, to.uri);
       const ov = tr?.overlap;
       if (planKey !== key) return;
       if (!ov || !(ov.startAMs > 0)) return void (lastReason = "Spotify has no transition for this pair");
+      if (settings.beatOnly && !ov.isBeatmatched)
+        return void (lastReason = "Spotify can't beat-match this pair (beat-matched only is on)");
+      const tp = tempoPct(ov);
+      if (settings.maxTempo > 0 && Math.abs(tp) > settings.maxTempo)
+        return void (lastReason = `Tempo change ${signedPct(tp)} is over your ${settings.maxTempo}% limit`);
       plan = { key, from, to, toIdx, tr, ov, triggerAt: ov.startAMs - 1500 };
       lastReason = "";
       log(`planned: "${from.name ?? from.uri}" → "${to.name}" at ${fmt(ov.startAMs)}`, ov);
@@ -226,6 +247,7 @@
     try {
       const startMs = Math.round(posOf(state()) + 120); // small lead for the command to reach the player
       await fireNativeTransition(p.tr, ctxUri, p.from.uri, p.to.uri, startMs);
+      recordMix(p);
     } catch (e) {
       log("native transition failed", e);
       if (!previewActive()) session = null;
@@ -233,6 +255,28 @@
     } finally {
       busy = false;
     }
+  }
+
+  function recordMix(p) {
+    const ov = p.ov;
+    const tp = tempoPct(ov);
+    history.unshift({
+      at: Date.now(),
+      from: p.from.name ?? "",
+      to: p.to.name ?? "",
+      beat: !!ov.isBeatmatched,
+      bpmA: ov.bpmA ? Math.round(ov.bpmA) : null,
+      bpmB: ov.bpmB ? Math.round(ov.bpmB) : null,
+      tempo: Math.round(tp * 10) / 10,
+      overlapMs: Math.round(ov.durationMs || 0),
+    });
+    history.length = Math.min(history.length, HISTORY_MAX);
+    stats.mixes++;
+    if (ov.isBeatmatched) stats.beatmatched++;
+    stats.overlapMs += ov.durationMs || 0;
+    stats.tempoSum += Math.abs(tp);
+    saveJSON(HISTORY_KEY, history);
+    saveJSON(STATS_KEY, stats);
   }
 
   // ---------------------------------------------------------------- leaving automix mode
@@ -399,54 +443,250 @@
     if (ov.startBMs > 1000) bits.push(`enters at ${fmt(ov.startBMs)}`);
     return bits.join(" · ");
   }
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const mixing = () => session?.pendingIdx != null;
+  /** The plan for the song that's playing right now, if any. */
+  const livePlan = (st = state()) => (plan && st?.item && plan.from.uri === st.item.uri ? plan : null);
+
   function statusLines() {
     if (!settings.enabled) return ["DJ Mix is off", session ? "Finishing the current song in mix mode" : ""];
-    if (session?.pendingIdx != null) {
+    if (mixing()) {
       const to = session.queue[session.pendingIdx];
       return [`Mixing into ${to?.name}…`, describe(session.ov)];
     }
-    if (plan) return [`Next mix → ${plan.to.name} at ${fmt(plan.ov.startAMs)}`, describe(plan.ov)];
+    const p = livePlan();
+    if (p) {
+      const left = p.ov.startAMs - posOf(state());
+      return [`Next mix → ${p.to.name} at ${fmt(p.ov.startAMs)}${left > 0 ? ` (in ${fmt(left)})` : ""}`, describe(p.ov)];
+    }
     return [lastReason || "Waiting for the next song…", ""];
+  }
+
+  // ---------------------------------------------------------------- actions
+
+  function setEnabled(on) {
+    settings.enabled = on;
+    saveSettings();
+    button.active = on;
+    paintMarker();
+  }
+  /** A setting changed which mixes are allowed: drop the current plan so it gets re-checked. */
+  function replan() {
+    if (busy || mixing()) return;
+    plan = null;
+    planKey = "";
+  }
+  /** Jump to a few seconds before the next mix point so you hear the blend right away. */
+  function mixNow() {
+    const st = state();
+    const p = livePlan(st);
+    if (!settings.enabled || !p || mixing() || busy) return false;
+    const target = Math.max(0, p.ov.startAMs - 4000);
+    if (posOf(st) >= target) return false;
+    A.seekTo(target); // goes through our hand-back when in automix mode
+    return true;
+  }
+  /** Let the current song end normally instead of mixing, just this once. */
+  function skipMix() {
+    const p = livePlan();
+    if (!p || mixing()) return false;
+    skippedKey = p.key;
+    plan = null; // planKey stays the same, so this pair isn't planned again
+    lastReason = `Skipping this mix; ${p.to.name ?? "the next song"} plays normally`;
+    paintMarker();
+    return true;
+  }
+  function unskipMix() {
+    skippedKey = "";
+    replan();
+  }
+
+  // ---------------------------------------------------------------- seek-bar marker
+  // A glowing zone on Spotify's progress bar: where the next mix starts and how long the overlap lasts.
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .djmix-marker { position:absolute; top:50%; height:12px; transform:translateY(-50%); pointer-events:none; z-index:2;
+      border-radius:3px; min-width:3px; border-left:2px solid #1ed760;
+      background:linear-gradient(90deg, rgba(30,215,96,.55), rgba(30,215,96,.12));
+      box-shadow:0 0 8px rgba(30,215,96,.6); animation:djmix-glow 1.6s ease-in-out infinite; }
+    @keyframes djmix-glow { 50% { box-shadow:0 0 14px rgba(30,215,96,.95); } }
+  `;
+  document.head.appendChild(style);
+
+  const BAR_SELECTORS = [
+    '[data-testid="playback-progressbar"] [data-testid="progress-bar"]',
+    ".playback-bar [data-testid='progress-bar']",
+    ".playback-bar .progress-bar",
+    '[data-testid="playback-progressbar"]',
+  ];
+  const findBar = () => {
+    for (const sel of BAR_SELECTORS) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+    return null;
+  };
+  let marker = null;
+  function paintMarker() {
+    const st = state();
+    const p = livePlan(st);
+    const dur = st?.duration;
+    const bar = settings.marker && settings.enabled && p && dur > 0 && !mixing() ? findBar() : null;
+    if (!bar) {
+      marker?.remove();
+      marker = null;
+      return;
+    }
+    if (!marker || marker.parentElement !== bar) {
+      marker?.remove();
+      marker = document.createElement("div");
+      marker.className = "djmix-marker";
+      if (getComputedStyle(bar).position === "static") bar.style.position = "relative";
+      bar.appendChild(marker);
+    }
+    const start = Math.min(p.ov.startAMs, dur);
+    const len = Math.min(p.ov.durationMs || 0, dur - start);
+    marker.style.left = `${(start / dur) * 100}%`;
+    marker.style.width = `${(len / dur) * 100}%`;
+    marker.title = `DJ Mix → ${p.to.name} at ${fmt(start)}`;
+  }
+  setInterval(paintMarker, 500);
+
+  // ---------------------------------------------------------------- keyboard shortcut
+
+  const onShortcut = (e) => {
+    e?.preventDefault?.();
+    setEnabled(!settings.enabled);
+    S.showNotification(settings.enabled ? "🎧 DJ Mix on" : "DJ Mix off");
+  };
+  try {
+    if (typeof S.Mousetrap?.bind === "function") S.Mousetrap.bind("ctrl+alt+d", onShortcut);
+    else S.Keyboard?.registerShortcut?.({ key: "d", ctrl: true, alt: true }, onShortcut);
+  } catch (e) {
+    log("could not register keyboard shortcut", e);
+  }
+
+  // ---------------------------------------------------------------- panel
+
+  function historyHTML() {
+    if (!history.length) return `<li class="djmix-empty">No mixes yet. They'll show up here as they happen.</li>`;
+    return history
+      .map((h) => {
+        const meta = h.beat ? `${h.bpmA ?? "?"}→${h.bpmB ?? "?"} BPM${h.tempo ? ` · ${signedPct(h.tempo)}` : ""}` : "crossfade";
+        const when = new Date(h.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        return `<li><span class="djmix-h-songs"><span>${esc(h.from)}</span> → <b>${esc(h.to)}</b></span>
+          <span class="djmix-h-meta">${esc(meta)} · ${when}</span></li>`;
+      })
+      .join("");
+  }
+  function statsLine() {
+    if (!stats.mixes) return "";
+    const pctBeat = Math.round((stats.beatmatched / stats.mixes) * 100);
+    const avgTempo = stats.beatmatched ? stats.tempoSum / stats.beatmatched : 0;
+    const blend = stats.overlapMs >= 60000 ? `${Math.round(stats.overlapMs / 60000)} min` : `${Math.round(stats.overlapMs / 1000)}s`;
+    return `All time: ${stats.mixes} ${stats.mixes === 1 ? "mix" : "mixes"} · ${pctBeat}% beat-matched · avg tempo shift ${avgTempo.toFixed(1)}% · ${blend} of blending`;
   }
 
   function openPanel() {
     const root = document.createElement("div");
+    const checkbox = (key, label) => `
+      <div class="djmix-row"><label for="djmix-${key}">${label}</label>
+        <input type="checkbox" id="djmix-${key}" data-key="${key}" ${settings[key] ? "checked" : ""}></div>`;
+    const tempoOpts = [0, 2, 4, 6, 8]
+      .map((v) => `<option value="${v}" ${+settings.maxTempo === v ? "selected" : ""}>${v ? `±${v}%` : "Any"}</option>`)
+      .join("");
     root.innerHTML = `
       <style>
-        .djmix { display:flex; flex-direction:column; gap:16px; font-size:14px; color:var(--spice-text); min-width:340px; }
+        .djmix { display:flex; flex-direction:column; gap:14px; font-size:14px; color:var(--spice-text); min-width:360px; }
         .djmix-status { padding:14px; border-radius:8px; background:var(--spice-highlight, rgba(255,255,255,.07)); }
         .djmix-status b { display:block; font-size:15px; }
         .djmix-status span { display:block; margin-top:4px; opacity:.7; font-size:12px; }
+        .djmix-meter { margin-top:10px; height:4px; border-radius:2px; background:rgba(255,255,255,.1); overflow:hidden; }
+        .djmix-meter i { display:block; height:100%; width:0; background:#1ed760; transition:width .25s linear; }
+        .djmix-actions { display:flex; gap:8px; }
+        .djmix-actions button { flex:1; padding:8px 12px; border-radius:500px; border:1px solid rgba(255,255,255,.25);
+          background:transparent; color:inherit; font-weight:700; font-size:13px; cursor:pointer; }
+        .djmix-actions button:hover:not(:disabled) { border-color:#1ed760; color:#1ed760; }
+        .djmix-actions button:disabled { opacity:.35; cursor:default; }
         .djmix-row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
         .djmix-row input { width:18px; height:18px; accent-color:var(--spice-button, #1db954); }
+        .djmix-row select { background:var(--spice-highlight, #333); color:inherit; border:0; border-radius:4px; padding:4px 6px; }
+        .djmix-h { font-size:12px; text-transform:uppercase; letter-spacing:.08em; opacity:.6; margin-top:4px; }
+        .djmix-hist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; max-height:190px; overflow:auto; }
+        .djmix-hist li { display:flex; flex-direction:column; gap:2px; font-size:13px; }
+        .djmix-h-songs span { opacity:.75; }
+        .djmix-h-meta, .djmix-stats, .djmix-empty { opacity:.6; font-size:12px; }
         .djmix-note { opacity:.6; font-size:12px; line-height:1.45; }
       </style>
       <div class="djmix">
-        <div class="djmix-status"><b data-l1></b><span data-l2></span></div>
-        <div class="djmix-row"><label for="djmix-enabled">Mix songs like a DJ</label>
-          <input type="checkbox" id="djmix-enabled" data-key="enabled" ${settings.enabled ? "checked" : ""}></div>
-        <div class="djmix-row"><label for="djmix-notify">Show a notification on each mix</label>
-          <input type="checkbox" id="djmix-notify" data-key="notify" ${settings.notify ? "checked" : ""}></div>
+        <div class="djmix-status"><b data-l1></b><span data-l2></span><div class="djmix-meter"><i data-meter></i></div></div>
+        <div class="djmix-actions">
+          <button data-act="now" title="Jump to just before the mix point">⏩ Mix now</button>
+          <button data-act="skip" title="Let this song end normally, just this once">Skip this mix</button>
+        </div>
+        ${checkbox("enabled", "Mix songs like a DJ <span style='opacity:.5'>(Ctrl+Alt+D)</span>")}
+        ${checkbox("notify", "Show a notification on each mix")}
+        ${checkbox("marker", "Show the next mix on the seek bar")}
+        ${checkbox("beatOnly", "Only mix when Spotify can beat-match")}
+        <div class="djmix-row"><label for="djmix-maxTempo">Largest tempo change allowed</label>
+          <select id="djmix-maxTempo">${tempoOpts}</select></div>
+        <div class="djmix-h">Recent mixes</div>
+        <ul class="djmix-hist" data-hist></ul>
+        <div class="djmix-stats" data-stats></div>
         <div class="djmix-note">Transitions come from Spotify's own automix engine: it picks the mix point, lines up the
           beats and nudges the tempo of the incoming song. While mixing, songs you add to the queue are picked up
           after you next seek or skip.</div>
       </div>`;
+
     root.querySelectorAll("[data-key]").forEach((input) =>
       input.addEventListener("change", () => {
-        settings[input.dataset.key] = input.checked;
+        const key = input.dataset.key;
+        if (key === "enabled") return setEnabled(input.checked);
+        settings[key] = input.checked;
         saveSettings();
-        button.active = settings.enabled;
+        if (key === "beatOnly") replan();
+        paintMarker();
       })
     );
+    root.querySelector("#djmix-maxTempo").addEventListener("change", (e) => {
+      settings.maxTempo = +e.target.value || 0;
+      saveSettings();
+      replan();
+    });
+    const btnNow = root.querySelector('[data-act="now"]');
+    const btnSkip = root.querySelector('[data-act="skip"]');
+    const canUnskip = () => !!skippedKey && skippedKey === planKey && !livePlan();
+    btnNow.addEventListener("click", () => mixNow());
+    btnSkip.addEventListener("click", () => (canUnskip() ? unskipMix() : skipMix()));
+
     const l1 = root.querySelector("[data-l1]"), l2 = root.querySelector("[data-l2]");
+    const meter = root.querySelector("[data-meter]");
+    const histEl = root.querySelector("[data-hist]"), statsEl = root.querySelector("[data-stats]");
+    const enabledBox = root.querySelector("#djmix-enabled");
+    let shownHistory = -1;
     const refresh = () => {
       if (!root.isConnected && root.dataset.shown) return clearInterval(timer);
       if (root.isConnected) root.dataset.shown = "1";
+      const st = state();
+      const p = livePlan(st);
       const [a, b] = statusLines();
       l1.textContent = a;
       l2.textContent = b;
+      enabledBox.checked = settings.enabled; // the shortcut can flip it while the panel is open
+      meter.style.width = p ? `${Math.min(100, (posOf(st) / p.ov.startAMs) * 100)}%` : mixing() ? "100%" : "0%";
+      btnNow.disabled = !settings.enabled || !p || mixing() || posOf(st) >= p.ov.startAMs - 4000;
+      const unskip = canUnskip();
+      btnSkip.textContent = unskip ? "Undo skip" : "Skip this mix";
+      btnSkip.disabled = !(p || unskip) || mixing();
+      const stamp = history.length ? history[0].at : 0;
+      if (stamp !== shownHistory) {
+        shownHistory = stamp;
+        histEl.innerHTML = historyHTML();
+        statsEl.textContent = statsLine();
+      }
     };
-    const timer = setInterval(refresh, 500);
+    const timer = setInterval(refresh, 250);
     refresh();
     S.PopupModal.display({ title: "DJ Mix", content: root, isLarge: false });
   }
@@ -455,6 +695,10 @@
     get plan() { return plan; },
     get session() { return session; },
     settings,
+    history,
+    stats,
+    mixNow,
+    skipMix,
   };
   log("ready");
 })();
