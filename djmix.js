@@ -2,7 +2,7 @@
 // DESCRIPTION: Real DJ transitions in Spotify. Uses Spotify's own (hidden) automix engine to overlap the end of one
 //              song with the next, beat-matched and tempo-synced, like Apple Music's AutoMix. On accounts where
 //              that engine is unavailable (Spotify Free), it falls back to a smooth, recipe-timed fade.
-// VERSION: 0.5.0
+// VERSION: 0.6.0
 //
 // How it works
 //   Beat-match engine (Premium)
@@ -21,6 +21,8 @@
 //     queued, which used to just cut.
 
 (function djmix() {
+  // Already running: installed twice (Marketplace + the app), or an older copy (v0.5 and earlier set only __djmix).
+  if (window.DJMix || window.__djmix) return;
   const S = window.Spicetify;
   const P = S?.Platform;
   if (!S?.Playbar?.Button || !S?.PopupModal || !S?.LocalStorage || !P?.PlayerAPI) {
@@ -49,8 +51,9 @@
   // Spotify's recipe says (skips dead intros). fallbackFade: fade when beat-match can't mix a pair.
   const DEFAULTS = {
     enabled: true, notify: true, marker: true, beatOnly: false, maxTempo: 0,
-    engine: "auto", fadeSec: 6, smartEntry: true, fallbackFade: true,
+    engine: "auto", fadeSec: 6, smartEntry: true, fallbackFade: true, fadeCurve: "power",
   };
+  const VERSION = "0.6.0";
   const loadJSON = (key, fallback) => {
     try {
       const v = JSON.parse(S.LocalStorage.get(key) || "null");
@@ -461,6 +464,7 @@
   dropKey(RESTORE_KEY);
   window.addEventListener("beforeunload", () => {
     if (fade && fade.phase !== "user") setVol(fade.v0);
+    if (lab?.mode === "fade") setVol(lab.v0);
   });
 
   function startFade(p) {
@@ -475,6 +479,15 @@
     log(`fading into "${p.to.name}"`, p);
     if (settings.notify) S.showNotification(`🎚️ Fading into ${p.to.name}`);
   }
+
+  // Fade shapes. Each maps progress k (0..1) to gain for the outgoing song; the incoming song uses curve(1 - k).
+  const CURVES = {
+    power: (k) => Math.cos((k * Math.PI) / 2), // equal-power: steady loudness through the fade
+    linear: (k) => 1 - k,
+    smooth: (k) => 0.5 + 0.5 * Math.cos(k * Math.PI), // slow start, slow end
+    late: (k) => Math.sqrt(Math.max(0, 1 - k * k)), // holds full volume longer, then drops
+  };
+  const curve = (k) => (CURVES[settings.fadeCurve] || CURVES.power)(clamp(k, 0, 1));
 
   function applyGain(g) {
     const v = fade.v0 * g;
@@ -521,7 +534,7 @@
       if (pos < p.fadeStart - 1500) return endFade("cancel"); // you seeked back
       if (st.isPaused) return;
       const k = clamp((pos - p.fadeStart) / Math.max(1, p.cutAt - p.fadeStart), 0, 1);
-      applyGain(Math.cos((k * Math.PI) / 2));
+      applyGain(curve(k));
       if (k >= 1 || pos >= (st.duration || Infinity) - 200) {
         applyGain(0);
         fade.phase = "skip";
@@ -553,7 +566,7 @@
       return;
     }
     const k = clamp((now - fade.t0) / Math.max(1, p.fadeInMs), 0, 1);
-    applyGain(Math.sin((k * Math.PI) / 2));
+    applyGain(curve(1 - k));
     if (k >= 1) endFade("done");
   }
 
@@ -644,6 +657,7 @@
   function tick() {
     if (busy) return;
     const st = state();
+    if (lab) return stepLab(st);
     if (fade) return stepFade(st);
     if (!st?.item) return;
     const now = Date.now();
@@ -775,6 +789,27 @@
     if (!on) endFade("cancel");
     paintMarker();
   }
+  /** Change one setting, with the same side effects as the panel. Returns false for unknown keys / bad values. */
+  function setSetting(key, value) {
+    if (!(key in DEFAULTS)) return false;
+    if (key === "enabled") return setEnabled(!!value), true;
+    if (typeof DEFAULTS[key] === "boolean") value = !!value;
+    else if (typeof DEFAULTS[key] === "number") value = +value || 0;
+    else value = String(value);
+    if (key === "engine" && !["auto", "native", "fade"].includes(value)) return false;
+    if (key === "fadeCurve" && !CURVES[value]) return false;
+    settings[key] = value;
+    if (key === "engine" && value === "auto" && nativeState.broken && !isFree()) {
+      nativeState.broken = false; // picking Auto again retries beat-match
+      saveJSON(NATIVE_KEY, nativeState);
+    }
+    saveSettings();
+    if (!["notify", "marker", "fadeCurve"].includes(key)) replan();
+    paintMarker();
+    return true;
+  }
+  const canUnskip = () => !!skippedKey && skippedKey === planKey && !livePlan();
+
   /** A setting changed which mixes are allowed: drop the current plan so it gets re-checked. */
   function replan() {
     if (busy || mixing()) return;
@@ -952,6 +987,7 @@
         ${select("engine", "Mix engine", [["auto", "Auto"], ["native", "Beat-match (Premium)"], ["fade", "Smooth fade (any account)"]])}
         ${checkbox("fallbackFade", "Fade songs beat-match can't mix (queue, no transition)")}
         ${select("fadeSec", "Fade length", [[3, "3s"], [6, "6s"], [9, "9s"], [12, "12s"]])}
+        ${select("fadeCurve", "Fade shape", [["power", "Equal power"], ["linear", "Linear"], ["smooth", "S-curve"], ["late", "Late drop"]])}
         ${checkbox("smartEntry", "Start the next song past its quiet intro")}
         <div class="djmix-h">Beat-match filters</div>
         ${checkbox("beatOnly", "Only mix when Spotify can beat-match")}
@@ -959,6 +995,7 @@
         <div class="djmix-h">Recent mixes</div>
         <ul class="djmix-hist" data-hist></ul>
         <div class="djmix-stats" data-stats></div>
+        <div class="djmix-actions"><button data-act="app">Open the DJ Mix app →</button></div>
         <div class="djmix-note">Beat-match transitions come from Spotify's own automix engine, which only plays on
           Premium. On Spotify Free, DJ Mix uses a Smooth fade instead: Spotify still picks the mix point and the next
           song's entry point, and DJ Mix fades between them. A true overlap isn't possible there, because the player
@@ -966,31 +1003,18 @@
       </div>`;
 
     root.querySelectorAll("[data-key]").forEach((input) =>
-      input.addEventListener("change", () => {
-        const key = input.dataset.key;
-        if (key === "enabled") return setEnabled(input.checked);
-        settings[key] = input.checked;
-        saveSettings();
-        if (key !== "notify" && key !== "marker") replan();
-        paintMarker();
-      })
+      input.addEventListener("change", () => setSetting(input.dataset.key, input.checked))
     );
     root.querySelectorAll("[data-select]").forEach((sel) =>
-      sel.addEventListener("change", () => {
-        const key = sel.dataset.select;
-        settings[key] = key === "engine" ? sel.value : +sel.value || 0;
-        if (key === "engine" && sel.value === "auto" && nativeState.broken && !isFree()) {
-          nativeState.broken = false; // picking Auto again retries beat-match
-          saveJSON(NATIVE_KEY, nativeState);
-        }
-        saveSettings();
-        replan();
-      })
+      sel.addEventListener("change", () => setSetting(sel.dataset.select, sel.value))
     );
     const btnNow = root.querySelector('[data-act="now"]');
     const btnSkip = root.querySelector('[data-act="skip"]');
-    const canUnskip = () => !!skippedKey && skippedKey === planKey && !livePlan();
     btnNow.addEventListener("click", () => mixNow());
+    root.querySelector('[data-act="app"]').addEventListener("click", () => {
+      S.PopupModal.hide?.();
+      S.Platform.History?.push?.("/djmix");
+    });
     btnSkip.addEventListener("click", () => (canUnskip() ? unskipMix() : skipMix()));
 
     const l1 = root.querySelector("[data-l1]"), l2 = root.querySelector("[data-l2]");
@@ -1026,12 +1050,211 @@
     S.PopupModal.display({ title: "DJ Mix", content: root, isLarge: false });
   }
 
+  // ---------------------------------------------------------------- Mix Lab
+  // Hear the transition between any two songs, on demand. Used by the DJ Mix app.
+
+  const recipeCache = new Map();
+  /** Spotify's transition recipe for a → b ({ overlap, ... }), or null. Cached. */
+  async function getTransition(aUri, bUri) {
+    if (!hasRecipes || !isTrack(aUri) || !isTrack(bUri)) return null;
+    const key = `${aUri}|${bUri}`;
+    if (!recipeCache.has(key)) {
+      const pr = M.getAutoTransitionForTrackPair(aUri, bUri).catch((e) => {
+        recipeCache.delete(key);
+        log("transition lookup failed", e);
+        return null;
+      });
+      recipeCache.set(key, pr);
+      if (recipeCache.size > 300) recipeCache.delete(recipeCache.keys().next().value);
+    }
+    return recipeCache.get(key);
+  }
+
+  // lab: { mode: "native"|"fade", a, b, ov, phase, started, v0, mixA, entryB, fadeMs, t0, aName, bName }
+  let lab = null;
+  const labPlay = (uri, seekMs) =>
+    A.play({ uri }, { featureIdentifier: "djmix-lab", referrerIdentifier: "other" }, { seekTo: Math.max(0, Math.round(seekMs)) });
+
+  async function labPreview(aUri, bUri, opts = {}) {
+    if (!isTrack(aUri) || !isTrack(bUri)) throw new Error("Pick two songs");
+    if (aUri === bUri) throw new Error("Pick two different songs");
+    if (busy || fade) throw new Error("Wait for the current mix to finish");
+    stopLab();
+    const tr = await getTransition(aUri, bUri);
+    const ov = tr?.overlap?.startAMs > 0 ? tr.overlap : null;
+    // The lab takes over the player, so drop any running DJ Mix session first.
+    session = null;
+    plan = null;
+    planKey = "";
+    const wantNative = opts.engine !== "fade" && useNative() && !!ov;
+    if (wantNative) {
+      lab = { mode: "native", a: aUri, b: bUri, ov, phase: "lead", started: Date.now(), aName: opts.aName, bName: opts.bName };
+      try {
+        await M.playTransitionPreview(tr, state()?.context?.uri || aUri, aUri, bUri);
+        return status().lab;
+      } catch (e) {
+        lab = null;
+        log("lab: native preview failed, using a fade", e);
+      }
+    }
+    const v0 = getVol();
+    if (v0 == null) throw new Error("Can't read Spotify's volume");
+    const fadeMs = clamp((+settings.fadeSec || DEFAULTS.fadeSec) * 1000, 1000, 20000);
+    lab = {
+      mode: "fade", a: aUri, b: bUri, ov, phase: "load", started: Date.now(), v0, fadeMs, aName: opts.aName, bName: opts.bName,
+      mixA: ov ? ov.startAMs : null,
+      entryB: ov && settings.smartEntry && ov.startBMs > 1500 ? Math.min(45000, Math.round(ov.startBMs)) : 0,
+    };
+    saveJSON(RESTORE_KEY, { v: v0, at: Date.now() });
+    await labPlay(aUri, lab.mixA != null ? lab.mixA - 6000 : 0);
+    return status().lab;
+  }
+
+  function stopLab(reason) {
+    if (!lab) return;
+    const l = lab;
+    lab = null;
+    if (l.mode === "fade") {
+      setVol(l.v0);
+      dropKey(RESTORE_KEY);
+    } else if (previewActive()) {
+      // Back to the normal player, carrying on with whatever is playing now.
+      const st = state();
+      if (st?.item?.uri) quiet(labPlay(st.item.uri, posOf(st)));
+    }
+    if (reason) log(`lab: ${reason}`);
+  }
+
+  function stepLab(st) {
+    const l = lab;
+    const now = Date.now();
+    const pos = posOf(st);
+    if (l.mode === "native") {
+      if (now - l.started < 2500) return;
+      if (!previewActive()) {
+        // Spotify ignored it (Free accounts do): play the same pair as a fade instead.
+        lab = null;
+        labPreview(l.a, l.b, { engine: "fade", aName: l.aName, bName: l.bName }).catch((e) => log("lab fade failed", e));
+        return;
+      }
+      if (st?.item?.uri === l.b) l.phase = "in";
+      if (l.phase === "in" && pos > (l.ov.startBMs || 0) + (l.ov.durationMs || 0) + 4000) stopLab("preview done");
+      else if (now - l.started > 90000) stopLab("preview timed out");
+      return;
+    }
+    // Fade simulation: lead-in on song A, fade out at the mix point, switch, fade song B in at its entry point.
+    if (l.phase === "load") {
+      if (st?.item?.uri !== l.a) {
+        if (now - l.started > 8000) stopLab("song A didn't start");
+        return;
+      }
+      if (l.mixA == null) {
+        if (!(st.duration > 0)) return;
+        l.mixA = Math.max(0, st.duration - l.fadeMs - 500);
+        quiet(orig.seekTo.call(A, l.mixA - 6000));
+      }
+      l.phase = "lead";
+      return;
+    }
+    if (l.phase === "lead" || l.phase === "out") {
+      if (st?.item?.uri !== l.a) return stopLab("you played something else");
+      if (l.phase === "lead") {
+        if (pos >= l.mixA) {
+          l.phase = "out";
+          l.t0 = now;
+        }
+        return;
+      }
+      const k = (now - l.t0) / l.fadeMs;
+      setVol(l.v0 * curve(k));
+      if (k >= 1) {
+        setVol(0);
+        l.phase = "switch";
+        l.t0 = now;
+        quiet(labPlay(l.b, l.entryB));
+      }
+      return;
+    }
+    if (l.phase === "switch") {
+      if (st?.item?.uri === l.b) {
+        l.phase = "in";
+        l.t0 = now + 250; // let playback settle while it's still silent
+      } else if (now - l.t0 > 6000) stopLab("song B didn't start");
+      return;
+    }
+    // phase "in"
+    if (st?.item?.uri !== l.b) return stopLab("you played something else");
+    const k = (now - l.t0) / Math.min(l.fadeMs, l.entryB > 0 ? 2500 : 1200);
+    if (k < 0) return;
+    setVol(l.v0 * curve(1 - k));
+    if (k >= 1) stopLab("preview done");
+  }
+
+  // ---------------------------------------------------------------- public API (the DJ Mix app talks to this)
+
+  function planSummary(p) {
+    if (!p) return null;
+    return { mode: p.mode, to: p.to, at: mixAt(p), length: mixLen(p), overlap: p.ov || null, description: describePlan(p) };
+  }
+  function status() {
+    const st = state();
+    const [line1, line2] = statusLines();
+    return {
+      enabled: settings.enabled,
+      line1,
+      line2,
+      engine: engineLabel(),
+      account,
+      hasNative,
+      hasRecipes,
+      item: st?.item ? { uri: st.item.uri, name: st.item.name } : null,
+      position: posOf(st),
+      duration: st?.duration || 0,
+      paused: !!st?.isPaused,
+      plan: planSummary(livePlan(st)),
+      mixing: mixing(),
+      fadePhase: fade?.phase ?? null,
+      inSession: !!session,
+      canUnskip: canUnskip(),
+      lab: lab && { mode: lab.mode, phase: lab.phase, a: lab.a, b: lab.b, aName: lab.aName, bName: lab.bName, overlap: lab.ov },
+    };
+  }
+
+  window.DJMix = {
+    version: VERSION,
+    defaults: { ...DEFAULTS },
+    curves: Object.keys(CURVES),
+    curve: (name, k) => (CURVES[name] || CURVES.power)(clamp(k, 0, 1)),
+    get settings() { return { ...settings }; },
+    set: setSetting,
+    setEnabled,
+    status,
+    mixNow,
+    skipMix,
+    unskipMix,
+    getTransition,
+    describe,
+    history,
+    stats,
+    clearHistory() {
+      history.length = 0;
+      saveJSON(HISTORY_KEY, history);
+    },
+    resetStats() {
+      Object.assign(stats, { mixes: 0, beatmatched: 0, overlapMs: 0, tempoSum: 0, fades: 0 });
+      saveJSON(STATS_KEY, stats);
+    },
+    lab: { play: labPreview, stop: () => stopLab("stopped"), get active() { return !!lab; } },
+    openPanel,
+  };
+
   window.__djmix = {
     get plan() { return plan; },
     get session() { return session; },
     get fade() { return fade; },
     get account() { return account; },
     get engine() { return engineLabel(); },
+    get lab() { return lab; },
     nativeState,
     settings,
     history,

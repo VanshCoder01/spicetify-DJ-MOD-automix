@@ -37,8 +37,32 @@
 | **What you hear** | One song fading out while another fades in | An overlap that sounds like a DJ blend |
 | **Spotify Free** | Premium only | ✅ Smooth fade at Spotify's mix point (see [Free accounts](#spotify-free-accounts)) |
 
+## The DJ Mix app
+
+<p align="center">
+  <img src="assets/app-live.png" alt="The DJ Mix app in Spotify's sidebar: Deck A now playing, Deck B up next, a countdown to the mix, a crossfader and the mix zone on a timeline" width="100%">
+</p>
+
+New in v0.6.0: DJ Mix gets its own page in Spotify's sidebar.
+
+- **Live**: two decks (now playing and up next) with BPMs, a countdown to the mix, a crossfader that moves as the blend approaches, and the mix zone on a timeline. Mix now, Skip this mix and the on/off switch are one click away.
+- **Setlist**: looks ahead 5, 10 or 20 songs in your queue and asks Spotify for every transition. You get a **set flow score**, how many pairs it can beat-match, the average tempo shift, and a badge per mix.
+- **Mix Lab**: pick any two songs from your queue, or paste a Spotify link, and **hear how they'd blend**. It draws the overlap and shows BPMs, tempo change, bars and B's entry point. 🎲 picks a random pair. Includes a **fade shape playground** with four curves to choose from.
+- **Settings**: every option, with toggles, sliders and live curve previews.
+- **Stats**: all-time totals and your recent mixes with dates.
+
+<p align="center">
+  <img src="assets/app-lab.png" alt="The Mix Lab: song A and song B pickers, the transition recipe drawn as two overlapping lanes, and the fade shape playground" width="49%">
+  <img src="assets/app-setlist.png" alt="The Setlist tab: flow score, beat-matchable count and every upcoming transition with badges" width="49%">
+</p>
+<p align="center"><sub>Screenshots from the preview harness. Song names and numbers are examples.</sub></p>
+
 ## Features
 
+- 🖥️ **Its own app page** in Spotify's sidebar: live decks, setlist forecast, Mix Lab, settings and stats (see above).
+- 🧪 **Mix Lab**: hear the transition between any two songs, not just the next one.
+- 〰️ **Fade shapes**: equal-power, linear, S-curve or late-drop, for Smooth fades.
+- 💿 **Windows installer**: a proper setup wizard that checks for Spotify, installs Spicetify if you need it, and gives you a one-click **Repair** for after Spotify updates.
 - 🎚️ **Beat-matched overlaps** — every transition comes from Spotify's own automix engine, the one built for its playlist Mix feature.
 - 🥁 **Tempo sync** — the incoming song is nudged by a percent or two so the beats stay locked through the blend.
 - 🆓 **Works on Spotify Free** — Spotify only plays its beat-match engine on Premium. On Free, DJ Mix detects that and switches to a **Smooth fade** timed by the same engine's mix points.
@@ -62,9 +86,31 @@
 1. The **Spotify desktop app** from [spotify.com/download](https://www.spotify.com/download). The Microsoft Store version doesn't work with Spicetify.
 2. **[Spicetify](https://spicetify.app/docs/getting-started)** installed and applied at least once.
 
-### Easiest — Spicetify Marketplace
+### Easiest — Windows installer (recommended)
 
-Open **Marketplace** in Spotify's sidebar, go to **Extensions**, search **DJ Mix** and click **Install**. Done.
+1. Download **`DJMix-Setup-<version>.exe`** from the [latest release](https://github.com/VanshCoder01/spicetify-DJ-MOD-automix/releases/latest).
+2. Run it and click through the wizard. It checks for Spotify, offers to install Spicetify if you don't have it, installs the DJ Mix app, swaps out any older DJ Mix, and restarts Spotify.
+3. Click **DJ Mix** in Spotify's sidebar.
+
+It installs for your user only (no admin prompt) and keeps your settings, history and stats. If a Spotify update removes DJ Mix, run **Repair DJ Mix** from the Start menu. To uninstall, use **Settings → Apps → DJ Mix for Spotify**.
+
+<sub>Windows SmartScreen may warn about an unsigned installer from a small project. Click <b>More info → Run anyway</b>, or use one of the manual installs below.</sub>
+
+### Spicetify Marketplace (extension only)
+
+Open **Marketplace** in Spotify's sidebar, go to **Extensions**, search **DJ Mix** and click **Install**. You get mixing and the playbar panel, but not the app page.
+
+### App, manual install (any OS)
+
+Download **`DJMix-App-<version>.zip`** from the latest release and unzip it so you have `CustomApps/djmix/` inside your Spicetify folder (`%APPDATA%\spicetify` on Windows, `~/.config/spicetify` on macOS/Linux). Then run:
+
+```bash
+spicetify config extensions djmix.js-   # only if you had the old standalone extension
+spicetify config custom_apps djmix
+spicetify apply
+```
+
+The app includes the DJ Mix extension, so you don't need `djmix.js` separately.
 
 <sub>No Marketplace yet? See the <a href="https://spicetify.app/docs/customization/marketplace">Spicetify Marketplace docs</a>, or use the one-paste install below.</sub>
 
@@ -112,11 +158,18 @@ powershell -ExecutionPolicy Bypass -File .\deploy.ps1
 
 `deploy.ps1` copies `djmix.js` into Spicetify's Extensions folder, enables it if it isn't already, and runs `spicetify apply`. Run it again after every edit.
 
+**Working on the app?** Serve the repo (`python -m http.server`) and open `tools/preview.html`. It runs the real extension and app against a fake Spotify player, so you don't need to restart Spotify. Add `?free=1` to act as a Free account, or `?speed=4` to fast-forward time.
+
+**Building a release:** `.\build.ps1` writes the app folder, the zip, `djmix.js` and the installer (needs [Inno Setup 6](https://jrsoftware.org/isdl.php)) into `dist\`.
+
 </details>
 
 ### Uninstall
 
+Installed with the installer? Use **Settings → Apps → DJ Mix for Spotify → Uninstall**. Otherwise:
+
 ```powershell
+spicetify config custom_apps djmix-
 spicetify config extensions djmix.js-
 spicetify apply
 ```

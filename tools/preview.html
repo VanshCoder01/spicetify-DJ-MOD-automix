@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DJ Mix app preview</title>
+<!--
+  Preview the DJ Mix app outside Spotify, against a fake Spicetify player.
+  Serve the repo root (e.g. `npx serve .` or `python -m http.server`) and open /tools/preview.html.
+  ?free=1 pretends to be a Spotify Free account. The fake player really plays: time runs, songs change, volume fades.
+-->
+<link rel="stylesheet" href="../app/style.css">
+<style>
+  :root { --spice-main:#121212; --spice-text:#fff; --spice-subtext:#b3b3b3; --spice-card:#1d1d1d; --spice-highlight:#2a2a2a; --spice-main-elevated:#242424; }
+  body { margin:0; background:var(--spice-main); font-family: "Segoe UI", system-ui, sans-serif; }
+  #mockbar { position:sticky; top:0; z-index:10; background:#000; color:#b3b3b3; font:12px monospace; padding:6px 12px; display:flex; gap:16px; }
+</style>
+<script src="https://unpkg.com/react@17.0.2/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@17.0.2/umd/react-dom.development.js"></script>
+</head>
+<body>
+<div id="mockbar"></div>
+<div id="root"></div>
+<script>
+(function mockSpicetify() {
+  const free = /free=1/.test(location.search);
+  const speed = +(new URLSearchParams(location.search).get("speed") || 1); // ?speed=20 to fast-forward
+  const songs = [
+    ["Midnight Drive", "Neon Avenue", 214000, 122], ["Glass Hearts", "Lumen", 198000, 124], ["Afterglow", "Kite Theory", 241000, 120],
+    ["Solar Wind", "Odessa Park", 187000, 128], ["Paper Planes Tonight", "Mira Vale", 226000, 96], ["Echo Chamber", "The Lowlights", 203000, 126],
+    ["Night Swim", "Coastal", 232000, 118], ["Golden Hour", "Ava Rune", 209000, 123],
+  ].map(([name, artist, dur, bpm], i) => ({
+    uri: `spotify:track:${String(i).padStart(22, "x")}`, uid: `uid${i}`, name, provider: "context",
+    artists: [{ name: artist }], duration: { milliseconds: dur }, bpm,
+    images: [{ url: `https://picsum.photos/seed/djmix${i}/300/300`, label: "large" }],
+  }));
+  songs[3].provider = "queue";
+  let idx = 0, pos = 150000, paused = false, last = performance.now(), vol = 0.8, automix = false;
+  const st = () => ({
+    item: songs[idx], nextItems: songs.slice(idx + 1), context: { uri: "spotify:playlist:mock" }, isPaused: paused, repeat: 0,
+    duration: songs[idx].duration.milliseconds, positionAsOfTimestamp: pos, timestamp: Date.now(), speed: 1,
+  });
+  setInterval(() => {
+    const now = performance.now();
+    if (!paused) pos += (now - last) * speed;
+    last = now;
+    if (pos >= songs[idx].duration.milliseconds) { idx = (idx + 1) % songs.length; pos = 0; }
+    document.getElementById("mockbar").textContent =
+      `MOCK${free ? " (Free)" : ""} · ${songs[idx].name} ${Math.round(pos / 1000)}s · vol ${Math.round(vol * 100)}% · automix ${automix}`;
+  }, 50);
+  const store = {};
+  const find = (uri) => songs.findIndex((s) => s.uri === uri);
+  window.Spicetify = {
+    React, ReactDOM,
+    LocalStorage: { get: (k) => store[k] ?? null, set: (k, v) => (store[k] = v), remove: (k) => delete store[k] },
+    Playbar: { Button: function () { this.active = true; } },
+    PopupModal: { display() {}, hide() {} },
+    showNotification: (t) => console.log("notification:", t),
+    Mousetrap: { bind() {} },
+    CosmosAsync: { get: async () => { throw new Error("offline"); } },
+    Player: { getVolume: () => vol, setVolume: (v) => (vol = v), addEventListener() {}, removeEventListener() {} },
+    Platform: {
+      History: { push: () => {} },
+      ProductStateAPI: { getValues: async () => ({ type: free ? "free" : "premium" }) },
+      PlayerAPI: {
+        getState: st,
+        getQueue: async () => ({ queued: [], nextUp: songs.slice(idx + 1) }),
+        play: async (ctx, _o, opts) => {
+          const i = find(opts?.skipTo?.uri ?? ctx.uri);
+          if (i >= 0) idx = i;
+          pos = opts?.seekTo || 0; automix = false; paused = false;
+        },
+        pause: async () => (paused = true),
+        seekTo: async (ms) => (pos = ms),
+        skipToNext: async () => { idx = (idx + 1) % songs.length; pos = 0; },
+        skipToPrevious: async () => { pos = 0; },
+        sendSignal: async () => {},
+        getEvents: () => ({ emit() {} }),
+      },
+      PlaylistMixingAPI: {
+        _transitionAPI: { _previewPlayer: { isTransitionPreviewActive: () => automix } },
+        isTransitionPreviewActive: () => automix,
+        cleanupTransitionPreview: async () => (automix = false),
+        getAutoTransitionForTrackPair: async (a, b) => {
+          await new Promise((r) => setTimeout(r, 120));
+          const A = songs[find(a)], B = songs[find(b)];
+          if (!A || !B || A.name.startsWith("Paper")) return null;
+          const beat = Math.abs(A.bpm - B.bpm) < 10;
+          const durationMs = beat ? 15000 : 8000;
+          return { overlap: { startAMs: A.duration.milliseconds - 22000, startBMs: 4200, durationMs, durationBars: beat ? 8 : 0,
+            isBeatmatched: beat, bpmA: A.bpm, bpmB: B.bpm, speedB: beat ? A.bpm / B.bpm : 1 } };
+        },
+        playTransitionPreview: async (tr, ctx, a, b) => {
+          if (free) return; // Free silently ignores it, like the real thing
+          automix = true;
+          const ov = tr.overlap;
+          setTimeout(() => { idx = find(b); pos = ov.startBMs + ov.durationMs / 2; }, ov.durationMs / 2 / speed);
+        },
+      },
+    },
+  };
+})();
+</script>
+<script src="../djmix.js"></script>
+<script src="../app/index.js"></script>
+<script>
+  ReactDOM.render(render(), document.getElementById("root"));
+</script>
+</body>
+</html>
